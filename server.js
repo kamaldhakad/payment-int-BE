@@ -6,7 +6,6 @@ require("dotenv").config();
 
 const app = express();
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
-console.log(stripe, "stripeeeee");
 app.use(cors());
 app.use(express.json());
 
@@ -16,7 +15,7 @@ app.post("/create-payment-intent", async (req, res) => {
 
     // Create a PaymentIntent
     const paymentIntent = await stripe.paymentIntents.create({
-      amount, // in cents: e.g., 500 = $5.00
+      amount,
       currency,
       automatic_payment_methods: { enabled: true },
     });
@@ -30,5 +29,9 @@ app.post("/create-payment-intent", async (req, res) => {
   }
 });
 
+app.get("/", async (req, res) => {
+  res.send("Everything is fine");
+});
+
 const PORT = process.env.PORT || 8000;
-app.listen(PORT, () => console.log(`Stripe backend running on port ${PORT}`));
+app.listen(PORT);
