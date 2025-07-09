@@ -1,37 +1,46 @@
-// server.js
-const express = require("express");
-const Stripe = require("stripe");
-const cors = require("cors");
 require("dotenv").config();
-
+const express = require("express");
 const app = express();
-const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+const cors = require("cors");
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+
 app.use(cors());
 app.use(express.json());
 
 app.post("/create-payment-intent", async (req, res) => {
-  try {
-    const { amount, currency = "usd" } = req.body;
-
-    // Create a PaymentIntent
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount,
-      currency,
-      automatic_payment_methods: { enabled: true },
-    });
-
-    res.send({
-      clientSecret: paymentIntent.client_secret,
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).send({ error: err.message });
-  }
+  const paymentIntent = await stripe.paymentIntents.create({
+    amount: 5000,
+    currency: "usd",
+    automatic_payment_methods: { enabled: true },
+  });
+  res.send({ clientSecret: paymentIntent.client_secret });
 });
 
-app.get("/", async (req, res) => {
-  res.send("Everything is fine");
+app.post("/create-subscription", async (req, res) => {
+  const customer = await stripe.customers.create({ email: req.body.email });
+
+  const subscription = await stripe.subscriptions.create({
+    customer: customer.id,
+    items: [{ price: process.env.STRIPE_PRICE_ID }],
+    payment_behavior: "default_incomplete",
+    payment_settings: {
+      save_default_payment_method: "on_subscription",
+    },
+    expand: ["latest_invoice.payment_intent"],
+  });
+
+  res.send({
+    clientSecret: subscription.latest_invoice.payment_intent.client_secret,
+  });
 });
 
-const PORT = process.env.PORT || 8000;
-app.listen(PORT);
+app.post("/create-setup-intent", async (req, res) => {
+  const customer = await stripe.customers.create({ email: req.body.email });
+  const setupIntent = await stripe.setupIntents.create({
+    customer: customer.id,
+    payment_method_types: ["card"],
+  });
+  res.send({ clientSecret: setupIntent.client_secret });
+});
+
+app.listen(4242, () => console.log("Backend running on port 4242"));
