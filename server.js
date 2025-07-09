@@ -17,7 +17,7 @@ app.post("/create-payment-intent", async (req, res) => {
     const paymentIntent = await stripe.paymentIntents.create({
       amount,
       currency,
-      automatic_payment_methods: { enabled: true },
+      automatic_payment_methods: { enabled: false },
     });
 
     res.send({
