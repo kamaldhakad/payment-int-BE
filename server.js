@@ -8,27 +8,37 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Payment Intents
 app.post("/create-payment-intent", async (req, res) => {
-  const { saveCard, email } = req.body;
+  try {
+    const { saveCard, email } = req.body;
 
-  let customerId = null;
+    let customerId = null;
 
-  if (saveCard) {
-    const customer = await stripe.customers.create({ email });
-    customerId = customer.id;
+    if (saveCard) {
+      if (!email) {
+        return res
+          .status(400)
+          .json({ error: "Email is required to save card" });
+      }
+
+      const customer = await stripe.customers.create({ email });
+      customerId = customer.id;
+    }
+
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: 5000,
+      currency: "usd",
+      customer: customerId || undefined,
+      automatic_payment_methods: { enabled: true },
+      ...(saveCard ? { setup_future_usage: "off_session" } : {}),
+    });
+
+    res.send({ clientSecret: paymentIntent.client_secret });
+  } catch (error) {
+    console.error("Error creating payment intent:", error);
+    res.status(500).json({ error: error.message || "Internal Server Error" });
   }
-
-  const paymentIntent = await stripe.paymentIntents.create({
-    amount: 5000,
-    currency: "usd",
-    customer: customerId || undefined,
-    automatic_payment_methods: { enabled: true },
-    ...(saveCard && {
-      setup_future_usage: "off_session", // Save card for future
-    }),
-  });
-
-  res.send({ clientSecret: paymentIntent.client_secret });
 });
 
 // Subscription flow (always saves card)
