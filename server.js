@@ -70,4 +70,6 @@ app.post("/create-setup-intent", async (req, res) => {
   res.send({ clientSecret: setupIntent.client_secret });
 });
 
-app.listen(4242, () => console.log("Backend running on port 4242"));
+const PORT = process.env.PORT || 8000;
+
+app.listen(PORT, () => console.log(`Backend running on port ${PORT}`));
