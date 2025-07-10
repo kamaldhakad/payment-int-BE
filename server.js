@@ -5,13 +5,24 @@ const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 const app = express();
 
-app.use(cors());
+// CORS setup
+app.use(
+  cors({
+    origin: "*",
+    methods: ["GET", "POST", "OPTIONS"],
+    allowedHeaders: ["Content-Type"],
+  })
+);
 app.use(express.json());
 
-// Payment Intents
+// One-Time Payment Intent
 app.post("/create-payment-intent", async (req, res) => {
   try {
-    const { saveCard, email } = req.body;
+    const { saveCard, email, amount } = req.body;
+
+    if (!amount) {
+      return res.status(400).json({ error: "Amount is required" });
+    }
 
     let customerId = null;
 
@@ -27,7 +38,7 @@ app.post("/create-payment-intent", async (req, res) => {
     }
 
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: 5000,
+      amount,
       currency: "usd",
       customer: customerId || undefined,
       automatic_payment_methods: { enabled: true },
@@ -41,35 +52,52 @@ app.post("/create-payment-intent", async (req, res) => {
   }
 });
 
-// Subscription flow (always saves card)
+// Subscription flow (uses price ID and always saves card)
 app.post("/create-subscription", async (req, res) => {
-  const customer = await stripe.customers.create({ email: req.body.email });
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: "Email is required" });
 
-  const subscription = await stripe.subscriptions.create({
-    customer: customer.id,
-    items: [{ price: process.env.STRIPE_PRICE_ID }],
-    payment_behavior: "default_incomplete",
-    payment_settings: {
-      save_default_payment_method: "on_subscription",
-    },
-    expand: ["latest_invoice.payment_intent"],
-  });
+    const customer = await stripe.customers.create({ email });
 
-  res.send({
-    clientSecret: subscription.latest_invoice.payment_intent.client_secret,
-  });
+    const subscription = await stripe.subscriptions.create({
+      customer: customer.id,
+      items: [{ price: process.env.STRIPE_PRICE_ID }],
+      payment_behavior: "default_incomplete",
+      payment_settings: {
+        save_default_payment_method: "on_subscription",
+      },
+      expand: ["latest_invoice.payment_intent"],
+    });
+
+    res.send({
+      clientSecret: subscription.latest_invoice.payment_intent.client_secret,
+    });
+  } catch (error) {
+    console.error("Error creating subscription:", error);
+    res.status(500).json({ error: error.message || "Internal Server Error" });
+  }
 });
 
-// Save Card Only (SetupIntent)
+// Setup Intent (save card only)
 app.post("/create-setup-intent", async (req, res) => {
-  const customer = await stripe.customers.create({ email: req.body.email });
-  const setupIntent = await stripe.setupIntents.create({
-    customer: customer.id,
-    payment_method_types: ["card"],
-  });
-  res.send({ clientSecret: setupIntent.client_secret });
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: "Email is required" });
+
+    const customer = await stripe.customers.create({ email });
+
+    const setupIntent = await stripe.setupIntents.create({
+      customer: customer.id,
+      payment_method_types: ["card"],
+    });
+
+    res.send({ clientSecret: setupIntent.client_secret });
+  } catch (error) {
+    console.error("Error creating setup intent:", error);
+    res.status(500).json({ error: error.message || "Internal Server Error" });
+  }
 });
 
 const PORT = process.env.PORT || 8000;
-
 app.listen(PORT, () => console.log(`Backend running on port ${PORT}`));
