@@ -5,23 +5,15 @@ const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 const app = express();
 
-app.use(
-  cors({
-    origin: "*",
-    methods: ["GET", "POST", "OPTIONS"],
-  })
-);
-
+app.use(cors());
 app.use(express.json());
 
-// ✅ Create PaymentIntent with optional save card logic
 app.post("/create-payment-intent", async (req, res) => {
   const { saveCard, email } = req.body;
 
   let customerId = null;
 
   if (saveCard) {
-    // Create a customer only if we need to save card
     const customer = await stripe.customers.create({ email });
     customerId = customer.id;
   }
@@ -32,14 +24,14 @@ app.post("/create-payment-intent", async (req, res) => {
     customer: customerId || undefined,
     automatic_payment_methods: { enabled: true },
     ...(saveCard && {
-      setup_future_usage: "off_session", // ✅ Save card for future
+      setup_future_usage: "off_session", // Save card for future
     }),
   });
 
   res.send({ clientSecret: paymentIntent.client_secret });
 });
 
-// ✅ Subscription flow (always saves card)
+// Subscription flow (always saves card)
 app.post("/create-subscription", async (req, res) => {
   const customer = await stripe.customers.create({ email: req.body.email });
 
@@ -58,7 +50,7 @@ app.post("/create-subscription", async (req, res) => {
   });
 });
 
-// ✅ Save Card Only (SetupIntent)
+// Save Card Only (SetupIntent)
 app.post("/create-setup-intent", async (req, res) => {
   const customer = await stripe.customers.create({ email: req.body.email });
   const setupIntent = await stripe.setupIntents.create({
