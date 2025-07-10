@@ -24,7 +24,7 @@ app.post("/create-payment-intent", async (req, res) => {
       return res.status(400).json({ error: "Amount is required" });
     }
 
-    let customerId = null;
+    let customerId;
 
     if (saveCard) {
       if (!email) {
@@ -32,7 +32,6 @@ app.post("/create-payment-intent", async (req, res) => {
           .status(400)
           .json({ error: "Email is required to save card" });
       }
-
       const customer = await stripe.customers.create({ email });
       customerId = customer.id;
     }
@@ -40,7 +39,7 @@ app.post("/create-payment-intent", async (req, res) => {
     const paymentIntent = await stripe.paymentIntents.create({
       amount,
       currency: "usd",
-      customer: customerId || undefined,
+      customer: customerId,
       automatic_payment_methods: { enabled: true },
       ...(saveCard ? { setup_future_usage: "off_session" } : {}),
     });
@@ -56,7 +55,10 @@ app.post("/create-payment-intent", async (req, res) => {
 app.post("/create-subscription", async (req, res) => {
   try {
     const { email } = req.body;
-    if (!email) return res.status(400).json({ error: "Email is required" });
+
+    if (!email) {
+      return res.status(400).json({ error: "Email is required" });
+    }
 
     const customer = await stripe.customers.create({ email });
 
@@ -83,7 +85,10 @@ app.post("/create-subscription", async (req, res) => {
 app.post("/create-setup-intent", async (req, res) => {
   try {
     const { email } = req.body;
-    if (!email) return res.status(400).json({ error: "Email is required" });
+
+    if (!email) {
+      return res.status(400).json({ error: "Email is required" });
+    }
 
     const customer = await stripe.customers.create({ email });
 
@@ -100,4 +105,4 @@ app.post("/create-setup-intent", async (req, res) => {
 });
 
 const PORT = process.env.PORT || 8000;
-app.listen(PORT, () => console.log(`Backend running on port ${PORT}`));
+app.listen(PORT, () => console.log(`✅ Backend running on port ${PORT}`));
